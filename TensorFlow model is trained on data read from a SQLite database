@@ -1,0 +1,41 @@
+#Kidus Berhanu
+import tensorflow as tf
+import sqlite3
+
+def create_model():
+    # Define a TensorFlow model
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Dense(units=64, activation='relu', input_shape=[10]),
+        tf.keras.layers.Dense(units=64, activation='relu'),
+        tf.keras.layers.Dense(units=10, activation='softmax')
+    ])
+
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+
+def train_model(model, data, epochs):
+    # Train the model on the data
+    model.fit(data, epochs=epochs)
+
+def save_model(model, cursor, model_name):
+    # Save the trained model to the database
+    model.save(model_name)
+    cursor.execute("CREATE TABLE model (weights BLOB)")
+    with open(model_name, 'rb') as f:
+        cursor.execute("INSERT INTO model (weights) VALUES (?)", (sqlite3.Binary(f.read()),))
+
+# Connect to SQLite database
+conn = sqlite3.connect('mydatabase.db')
+cursor = conn.cursor()
+
+# Read data from the database into TensorFlow tensors
+data = tf.data.SQLDataset("SELECT * FROM mytable", conn)
+data = data.batch(32)
+
+# Create, Train and Save the model
+model = create_model()
+train_model(model, data, 10)
+save_model(model, cursor, 'model.h5')
+
+conn.commit()
+conn.close()
